@@ -6,12 +6,10 @@ construction, CRC validation and response decoding so it can be reused by
 PySerial, WPF, Qt or embedded test harnesses.
 """
 
-from __future__ import annotations
-
 import argparse
 import json
 from dataclasses import dataclass
-from typing import Iterable
+from typing import Iterable, Optional, Tuple
 
 
 def crc16(data: bytes) -> int:
@@ -88,10 +86,10 @@ def write_multiple_registers(slave: int, address: int, values: Iterable[int]) ->
 class RegisterResponse:
     slave: int
     function: int
-    registers: tuple[int, ...]
+    registers: Tuple[int, ...]
 
 
-def parse_register_response(frame: bytes, expected_slave: int | None = None) -> RegisterResponse:
+def parse_register_response(frame: bytes, expected_slave: Optional[int] = None) -> RegisterResponse:
     if not validate_crc(frame):
         raise ValueError("invalid Modbus CRC")
     slave, function = frame[0], frame[1]
@@ -106,7 +104,10 @@ def parse_register_response(frame: bytes, expected_slave: int | None = None) -> 
     byte_count = frame[2]
     if byte_count % 2 or len(frame) != byte_count + 5:
         raise ValueError("invalid register byte count")
-    registers = tuple(int.from_bytes(frame[index : index + 2], "big") for index in range(3, 3 + byte_count, 2))
+    registers = tuple(
+        int.from_bytes(frame[index : index + 2], "big")
+        for index in range(3, 3 + byte_count, 2)
+    )
     return RegisterResponse(slave=slave, function=function, registers=registers)
 
 
@@ -149,7 +150,15 @@ def main() -> int:
     else:
         frame = bytes.fromhex(args.hex_frame)
         response = parse_register_response(frame)
-        print(json.dumps({"slave": response.slave, "function": response.function, "registers": response.registers}))
+        print(
+            json.dumps(
+                {
+                    "slave": response.slave,
+                    "function": response.function,
+                    "registers": response.registers,
+                }
+            )
+        )
     return 0
 
 
