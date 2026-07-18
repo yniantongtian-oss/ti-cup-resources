@@ -1,62 +1,65 @@
 # ti-cup-resources
 
-**实用资源合集 | Resources for TI Cup Participants**
+**中国大学生电子设计竞赛（TI Cup）备赛资源整理库**  
+**Practical resources for TI Cup participants**
 
-为中国大学生电子设计竞赛（TI Cup）参赛者提供的实用资源、经验分享和工具集合。
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+![Status](https://img.shields.io/badge/Status-Early%20Development-orange)
 
-A collection of practical resources, experience sharing, tools, and guides for participants of the National Undergraduate Electronic Design Competition (TI Cup) in China.
+## 仓库定位 | About
 
----
+本仓库用于整理 TI Cup 备赛过程中的学习路线、工具说明、常见问题、安全注意事项、答辩经验和模板规划，帮助参赛者减少重复检索和无效试错。
 
-## 项目简介 | About
+> **当前阶段：早期建设。** 文档内容已开始整理，但 `experience/`、`tools/` 和 `templates/` 中仍有占位页面，尚不能视为完整资源包。
 
-本仓库旨在帮助 TI Cup 参赛学生更高效地准备比赛，减少重复造轮子，提供真实比赛经验、常用工具推荐、注意事项和模板资源。
+## 已有内容 | Available Resources
 
-This repository aims to help TI Cup participants prepare more efficiently by sharing real competition experience, useful tools, common pitfalls, and ready-to-use templates.
+- [`docs/LEARNING_PATH.md`](docs/LEARNING_PATH.md)：学习路线
+- [`docs/COMMON_PITFALLS.md`](docs/COMMON_PITFALLS.md)：常见问题与踩坑提醒
+- [`docs/SAFETY_NOTES.md`](docs/SAFETY_NOTES.md)：实验安全注意事项
+- [`docs/ANSWER_DEFENSE_TIPS.md`](docs/ANSWER_DEFENSE_TIPS.md)：答辩准备建议
+- [`docs/REFERENCE_MATERIALS.md`](docs/REFERENCE_MATERIALS.md)：参考资料整理
+- [`docs/FAQ.md`](docs/FAQ.md)：常见问答
 
----
+## 目录结构 | Repository Structure
 
-## 包含内容 | Contents
-
-- **比赛经验分享**：真实备赛过程中的问题、解决方案和建议
-- **常用工具推荐**：Keil、Altium、仿真软件、示波器使用技巧等
-- **注意事项与坑**：硬件调试、答辩、报告撰写等常见问题
-- **模板资源**：报告模板、答辩 PPT 模板等（持续补充）
-- **其他实用资源**：参考资料、学习路径推荐
-
----
-
-## 目录结构 | Directory Structure
-
-```
+```text
 ti-cup-resources/
-├── experience/           # 比赛经验分享
-├── tools/                # 工具推荐与使用指南
-├── templates/            # 模板资源
-├── docs/                 # 详细文档
+├── experience/         # 比赛经验；当前持续补充
+├── tools/              # 工具推荐与使用指南；当前持续补充
+├── templates/          # 报告、答辩等模板；当前为规划目录
+├── docs/               # 已整理的专题文档
+├── CONTRIBUTING.md
+├── LICENSE
 └── README.md
 ```
 
----
+## 使用建议 | How to Use
 
-## 如何贡献 | Contributing
+1. 先根据 [`docs/LEARNING_PATH.md`](docs/LEARNING_PATH.md) 确定学习顺序。
+2. 在设计和调试前阅读 [`docs/SAFETY_NOTES.md`](docs/SAFETY_NOTES.md)。
+3. 将仓库内容作为学习和检查清单，不要把未经验证的参数直接用于高压或大功率实验。
+4. 发现错误、失效链接或缺失资源时，通过 Issue 反馈。
 
-欢迎所有 TI Cup 参赛者、老师和爱好者贡献内容！
+## 贡献 | Contributing
 
-可以贡献：
-- 自己的比赛经验和踩过的坑
-- 好用的工具和使用技巧
-- 模板和示例文件
-- 学习资源推荐
+欢迎补充：
 
-请参考 `CONTRIBUTING.md`（即将添加）。
+- 可复现的比赛经验和调试记录
+- 工具安装、配置与排错说明
+- 报告、答辩和实验记录模板
+- 有明确来源的学习资料
+- 文档纠错、链接维护和安全提醒
 
----
+贡献方式请参阅 [`CONTRIBUTING.md`](CONTRIBUTING.md)。
+
+## 内容原则 | Content Policy
+
+- 明确区分“已验证内容”“经验建议”和“待验证方案”。
+- 引用外部资料时注明来源并尊重许可证。
+- 不上传包含个人信息、学校内部敏感信息或未经授权的竞赛材料。
+- 涉及电力电子实验时，优先说明安全边界和验证条件。
 
 ## 许可证 | License
 
-本项目采用 [MIT License](LICENSE)。
-
----
-
-**欢迎 Star 和使用！希望这个仓库能帮助更多 TI Cup 参赛队伍取得好成绩。**
+本项目采用 [MIT License](LICENSE)。外部资料和第三方模板仍遵循其各自许可证与使用条款。
