@@ -1,0 +1,4 @@
+id,category,manufacturer,part_number,description,quantity,unit_price,currency,supplier,alternative_part,status,notes
+BOM-001,controller,,,,1,,CNY,,,planned,
+BOM-002,power-stage,,,,1,,CNY,,,planned,
+BOM-003,protection,,,,1,,CNY,,,planned,
