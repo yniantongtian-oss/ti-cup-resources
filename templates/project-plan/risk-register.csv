@@ -1,0 +1,4 @@
+risk_id,category,description,likelihood_1_5,impact_1_5,score,mitigation,owner,status,review_date
+RISK-001,safety,Unexpected output during startup,3,5,15,Default outputs off and verify hardware shutdown chain,,open,
+RISK-002,supply,Key component unavailable,3,4,12,Validate at least one pin-compatible or functionally equivalent alternative,,open,
+RISK-003,schedule,Integration begins too late,4,4,16,Set a minimum demonstrable system milestone and weekly integration test,,open,
