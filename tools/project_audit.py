@@ -8,6 +8,7 @@ import json
 import os
 import re
 import sys
+import stat
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Iterable
@@ -29,10 +30,22 @@ class Finding:
 
 
 def iter_files(root: Path) -> Iterable[Path]:
+    def safe(path: Path) -> bool:
+        try:
+            attributes = getattr(path.lstat(), "st_file_attributes", 0)
+            if path.is_symlink() or attributes & stat.FILE_ATTRIBUTE_REPARSE_POINT:
+                return False
+            path.resolve().relative_to(root.resolve())
+            return True
+        except (OSError, ValueError):
+            return False
+
     for current, dirs, files in os.walk(root):
-        dirs[:] = sorted(item for item in dirs if item not in SKIP_DIRS)
+        dirs[:] = sorted(item for item in dirs if item not in SKIP_DIRS and safe(Path(current) / item))
         for name in sorted(files):
-            yield Path(current) / name
+            path = Path(current) / name
+            if safe(path):
+                yield path
 
 
 def is_text_candidate(path: Path, max_bytes: int = 1_000_000) -> bool:
