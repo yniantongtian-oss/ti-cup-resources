@@ -33,7 +33,10 @@ def no_duplicate_keys(pairs):
 
 
 def check(root: Path) -> dict:
-    import tomllib
+    try:
+        import tomllib
+    except ModuleNotFoundError as exc:
+        raise RuntimeError("check_repository.py requires Python 3.11 or newer") from exc
 
     paths = tracked(root)
     findings = []

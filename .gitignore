@@ -16,7 +16,15 @@ Thumbs.db
 # Build outputs
 build/
 out/
+dist/
 Dist/
+
+# Python
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+.venv/
 
 # LaTeX
 *.aux

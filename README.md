@@ -32,6 +32,32 @@ python3 tools/modbus_rtu.py parse "01 04 02 00 2A 39 9B"
 
 The module can be imported into Python serial applications or test harnesses. See [Modbus troubleshooting](docs/MODBUS_DEBUGGING_GUIDE.md).
 
+Negative register values are encoded as int16. Slave 0 is accepted for writes and rejected for reads. A starting address plus quantity past register 65535 is rejected.
+
+## BOM check
+
+`templates/project-plan/bom.csv` is the expected column layout. The checker prices rows with `Decimal`, leaves `do-not-use` rows out of the total, and compares TI manufacturer rows with a small catalog read from ti.com on 2026-10-22.
+
+```bash
+python3 tools/bom.py check templates/project-plan/bom.csv
+python3 tools/bom.py lookup MSPM0G3507
+python3 tools/bom.py catalog --function mcu
+```
+
+Orderable suffixes such as `MSPM0G3507SRHBR` resolve to the catalog base device. That match is not a package or lifecycle guarantee. See [references](docs/REFERENCE_MATERIALS.md).
+
+## Contest prep
+
+One command runs the repository audit, the BOM check, the design-review checklist, the schedule, and the risk-register score. A terminal gets a short text summary. A pipe, a redirect, or `--format json` prints schema version 1 for scripts and agents. `ok` is true when there are no errors. Warnings stay in `counts`.
+
+```bash
+python3 tools/contest_prep.py .
+python3 tools/contest_prep.py . --format json --today 2026-10-22
+python3 tools/contest_prep.py . --strict
+```
+
+Exit 1 means the report has errors, or warnings when `--strict` is set. Exit 2 means the command could not read an explicit path. Details are in [tools/README.md](tools/README.md).
+
 ## Project and review templates
 
 | Resource | Intended use |
@@ -49,7 +75,15 @@ The module can be imported into Python serial applications or test harnesses. Se
 
 ## Validation
 
-GitHub Actions runs the standard-library Python tests and uploads an audit report. No mandatory external Python dependencies are required for the core tools.
+The core tools use the Python standard library only. pytest and ruff are declared in the `dev` extra:
+
+```bash
+python3 -m pip install -e ".[dev]"
+python3 -m pytest
+python3 -m ruff check tools tests .github/quality
+```
+
+GitHub Actions installs that extra, runs pytest on Python 3.8, 3.10, 3.12, and 3.13, runs ruff on 3.12, and uploads an audit report.
 
 ## Engineering safeguards
 

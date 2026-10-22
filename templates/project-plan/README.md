@@ -17,3 +17,12 @@
 5. 比赛结束后移除手机号、学号、内部群链接和未授权题目资料再公开。
 
 CSV 使用 UTF-8 编码，Excel、LibreOffice 和多数脚本工具均可直接打开。
+
+检查 BOM：
+
+```bash
+python tools/bom.py check bom.csv
+python tools/bom.py lookup MSPM0G3507
+```
+
+`check` 把缺列、空编号、非法数量和非法价格当成错误。计划中的空料号是警告。`--strict` 时警告也会返回非零。TI 目录摘自 2026-10-22 的公开产品页，下单前要再打开数据手册。`do-not-use` 行不计入金额。
