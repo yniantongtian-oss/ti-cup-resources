@@ -7,18 +7,48 @@ import argparse
 import json
 import os
 import re
-import sys
 import stat
+import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Iterable
 from urllib.parse import unquote, urlsplit
 
-SKIP_DIRS = {".git", ".idea", ".vscode", "build", "dist", "node_modules", ".venv", "venv", "__pycache__"}
-TEXT_SUFFIXES = {
-    ".c", ".cc", ".cpp", ".h", ".hpp", ".ini", ".json", ".md", ".py", ".toml",
-    ".txt", ".yaml", ".yml", ".tex", ".csv", ".sh", ".ps1", ".xml",
+SKIP_DIRS = {
+    ".git",
+    ".idea",
+    ".vscode",
+    "build",
+    "dist",
+    "node_modules",
+    ".venv",
+    "venv",
+    "__pycache__",
 }
+TEXT_SUFFIXES = {
+    ".c",
+    ".cc",
+    ".cpp",
+    ".h",
+    ".hpp",
+    ".ini",
+    ".json",
+    ".md",
+    ".py",
+    ".toml",
+    ".txt",
+    ".yaml",
+    ".yml",
+    ".tex",
+    ".csv",
+    ".sh",
+    ".ps1",
+    ".xml",
+}
+SENSITIVE_NAMES = {".env", ".netrc", ".npmrc", ".pgpass", ".pypirc"}
+_FENCE = re.compile(r"```.*?```", re.DOTALL)
+_COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
+_INLINE = re.compile(r"`[^`\n]*`")
 
 
 @dataclass(frozen=True)
@@ -33,7 +63,8 @@ def iter_files(root: Path) -> Iterable[Path]:
     def safe(path: Path) -> bool:
         try:
             attributes = getattr(path.lstat(), "st_file_attributes", 0)
-            if path.is_symlink() or attributes & stat.FILE_ATTRIBUTE_REPARSE_POINT:
+            reparse = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0)
+            if path.is_symlink() or attributes & reparse:
                 return False
             path.resolve().relative_to(root.resolve())
             return True
@@ -50,9 +81,15 @@ def iter_files(root: Path) -> Iterable[Path]:
 
 def is_text_candidate(path: Path, max_bytes: int = 1_000_000) -> bool:
     try:
-        return path.stat().st_size <= max_bytes and (path.suffix.lower() in TEXT_SUFFIXES or path.name in {"Makefile", "Dockerfile"})
+        size = path.stat().st_size
     except OSError:
         return False
+    if size > max_bytes:
+        return False
+    name = path.name
+    if name in SENSITIVE_NAMES or name.startswith(".env"):
+        return True
+    return path.suffix.lower() in TEXT_SUFFIXES or name in {"Makefile", "Dockerfile"}
 
 
 def scan_structure(root: Path) -> list[Finding]:
@@ -75,21 +112,37 @@ def scan_large_files(root: Path, limit_bytes: int) -> list[Finding]:
             findings.append(Finding("warning", "unreadable-file", str(path.relative_to(root)), str(exc)))
             continue
         if size > limit_bytes:
-            findings.append(Finding(
-                "warning", "large-file", str(path.relative_to(root)),
-                f"文件大小 {size / 1024 / 1024:.2f} MiB，建议使用 Git LFS 或发布附件",
-            ))
+            findings.append(
+                Finding(
+                    "warning",
+                    "large-file",
+                    str(path.relative_to(root)),
+                    f"文件大小 {size / 1024 / 1024:.2f} MiB，建议使用 Git LFS 或发布附件",
+                )
+            )
     return findings
 
 
 def secret_patterns() -> list[tuple[str, re.Pattern[str]]]:
     return [
-        ("private-key", re.compile("-----BEGIN " + "(?:RSA |EC |OPENSSH )?PRIVATE KEY-----")),
-        ("github-token", re.compile("gh" + r"[ps]_[A-Za-z0-9]{30,}")),
+        ("private-key", re.compile(r"-----BEGIN (?:[A-Z0-9]+ ){0,3}PRIVATE KEY-----")),
+        ("github-token", re.compile("gh" + r"[pousr]_[A-Za-z0-9]{30,}")),
+        ("github-token", re.compile("github_pat_" + r"[A-Za-z0-9_]{20,}")),
         ("aws-access-key", re.compile("AK" + r"IA[0-9A-Z]{16}")),
-        ("assigned-secret", re.compile(
-            r"(?i)(?:api[_-]?key|secret|token|password)\s*[:=]\s*['\"][^'\"\s]{12,}['\"]"
-        )),
+        (
+            "assigned-secret",
+            re.compile(
+                r"(?i)(?:api[_-]?key|secret|token|password)\s*[:=]\s*['\"][^'\"\s]{12,}['\"]"
+            ),
+        ),
+        (
+            "assigned-secret",
+            re.compile(
+                r"(?im)^[ \t]*(?:export[ \t]+)?['\"]?"
+                r"(?:api[_-]?key|secret|token|password)['\"]?"
+                r"[ \t]*[:=][ \t]*\S{12,}"
+            ),
+        ),
     ]
 
 
@@ -104,16 +157,32 @@ def scan_secrets(root: Path) -> list[Finding]:
         except OSError:
             continue
         relative = str(path.relative_to(root))
+        seen: set[str] = set()
         for name, pattern in patterns:
-            if pattern.search(text):
-                findings.append(Finding("error", "possible-secret", relative, f"检测到疑似 {name}；提交前请人工确认并轮换凭据"))
-                break
+            if name in seen or pattern.search(text) is None:
+                continue
+            seen.add(name)
+            findings.append(
+                Finding(
+                    "error",
+                    "possible-secret",
+                    relative,
+                    f"检测到疑似 {name}；提交前请人工确认并轮换凭据",
+                )
+            )
     return findings
+
+
+def visible_markdown(text: str) -> str:
+    """Drop comments, fenced blocks, and inline code before link checks."""
+    text = _COMMENT.sub("", text)
+    text = _FENCE.sub("", text)
+    return _INLINE.sub("", text)
 
 
 def markdown_targets(text: str) -> Iterable[str]:
     pattern = re.compile(r"!?\[[^\]]*\]\(([^)]+)\)")
-    for match in pattern.finditer(text):
+    for match in pattern.finditer(visible_markdown(text)):
         raw = match.group(1).strip()
         if raw.startswith("<") and raw.endswith(">"):
             raw = raw[1:-1]
@@ -133,7 +202,7 @@ def scan_markdown_links(root: Path) -> list[Finding]:
             continue
         for target in markdown_targets(text):
             parsed = urlsplit(target)
-            if parsed.scheme or target.startswith(("#", "mailto:")):
+            if parsed.scheme or parsed.netloc or target.startswith(("#", "//", "mailto:")):
                 continue
             relative_target = unquote(parsed.path)
             if not relative_target:
@@ -142,20 +211,43 @@ def scan_markdown_links(root: Path) -> list[Finding]:
             try:
                 resolved.relative_to(root.resolve())
             except ValueError:
-                findings.append(Finding("warning", "link-outside-root", str(path.relative_to(root)), f"链接指向仓库外部路径：{target}"))
+                findings.append(
+                    Finding(
+                        "warning",
+                        "link-outside-root",
+                        str(path.relative_to(root)),
+                        f"链接指向仓库外部路径：{target}",
+                    )
+                )
                 continue
             if not resolved.exists():
-                findings.append(Finding("warning", "broken-local-link", str(path.relative_to(root)), f"本地链接不存在：{target}"))
+                findings.append(
+                    Finding(
+                        "warning",
+                        "broken-local-link",
+                        str(path.relative_to(root)),
+                        f"本地链接不存在：{target}",
+                    )
+                )
     return findings
 
 
+def _limit_bytes(large_file_mb: float) -> int:
+    if isinstance(large_file_mb, bool) or not isinstance(large_file_mb, (int, float)):
+        raise ValueError("large_file_mb must be a finite number >= 0")
+    if large_file_mb < 0 or large_file_mb != large_file_mb or large_file_mb == float("inf"):
+        raise ValueError("large_file_mb must be a finite number >= 0")
+    return int(large_file_mb * 1024 * 1024)
+
+
 def audit(root: Path, large_file_mb: float = 10.0) -> list[Finding]:
+    limit = _limit_bytes(large_file_mb)
     root = root.resolve()
     if not root.is_dir():
         raise NotADirectoryError(root)
     findings: list[Finding] = []
     findings.extend(scan_structure(root))
-    findings.extend(scan_large_files(root, int(large_file_mb * 1024 * 1024)))
+    findings.extend(scan_large_files(root, limit))
     findings.extend(scan_secrets(root))
     findings.extend(scan_markdown_links(root))
     return sorted(findings, key=lambda item: (item.severity != "error", item.path, item.code))
@@ -165,8 +257,12 @@ def markdown_report(root: Path, findings: list[Finding]) -> str:
     errors = sum(item.severity == "error" for item in findings)
     warnings = sum(item.severity == "warning" for item in findings)
     lines = [
-        "# Repository Audit Report", "", f"- Root: `{root.resolve()}`",
-        f"- Errors: **{errors}**", f"- Warnings: **{warnings}**", "",
+        "# Repository Audit Report",
+        "",
+        f"- Root: `{root.resolve()}`",
+        f"- Errors: **{errors}**",
+        f"- Warnings: **{warnings}**",
+        "",
     ]
     if not findings:
         lines.append("No findings. 基础检查未发现问题。")
@@ -178,14 +274,14 @@ def markdown_report(root: Path, findings: list[Finding]) -> str:
     return "\n".join(lines) + "\n"
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("root", nargs="?", type=Path, default=Path.cwd())
     parser.add_argument("--large-file-mb", type=float, default=10.0)
     parser.add_argument("--format", choices=("markdown", "json"), default="markdown")
     parser.add_argument("--output", type=Path)
     parser.add_argument("--strict", action="store_true", help="return non-zero when any error is found")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     try:
         findings = audit(args.root, args.large_file_mb)
@@ -193,8 +289,11 @@ def main() -> int:
         print(f"audit failed: {exc}", file=sys.stderr)
         return 2
 
-    report = (json.dumps([asdict(item) for item in findings], ensure_ascii=False, indent=2) + "\n"
-              if args.format == "json" else markdown_report(args.root, findings))
+    report = (
+        json.dumps([asdict(item) for item in findings], ensure_ascii=False, indent=2) + "\n"
+        if args.format == "json"
+        else markdown_report(args.root, findings)
+    )
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(report, encoding="utf-8")

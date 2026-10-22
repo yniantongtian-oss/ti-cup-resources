@@ -1,11 +1,9 @@
+import stat
 import tempfile
 import unittest
 from pathlib import Path
 
-import sys
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
-
-from project_audit import audit  # noqa: E402
+from tools.project_audit import audit, iter_files
 
 
 class ProjectAuditTests(unittest.TestCase):
@@ -49,6 +47,71 @@ class ProjectAuditTests(unittest.TestCase):
             self.make_repo(root)
             (root / "capture.bin").write_bytes(b"x" * 32)
             self.assertIn("large-file", {item.code for item in audit(root, large_file_mb=0.00001)})
+
+    def test_ignores_fenced_comments_and_external_links(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.make_repo(root)
+            (root / "README.md").write_text(
+                "See [Guide](docs/guide.md).\n\n"
+                "```md\n[Missing](docs/missing.md)\n```\n\n"
+                "Inline `[Also missing](docs/nope.md)` is an example.\n"
+                "[Site](//example.com/path)\n"
+                "<!-- [Old](docs/old.md) -->\n",
+                encoding="utf-8",
+            )
+            self.assertEqual(audit(root), [])
+
+    def test_link_outside_root(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.make_repo(root)
+            (root / "README.md").write_text("[Out](../outside.md)\n", encoding="utf-8")
+            self.assertIn("link-outside-root", {item.code for item in audit(root)})
+
+    def test_env_file_and_encrypted_private_key(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.make_repo(root)
+            (root / ".env").write_text("pass" + "word=abcdefghijkl\n", encoding="utf-8")
+            (root / "notes.txt").write_text("-----BEGIN " + "ENCRYPTED PRIVATE KEY-----\n", encoding="utf-8")
+            messages = " ".join(item.message for item in audit(root))
+            self.assertIn("assigned-secret", messages)
+            self.assertIn("private-key", messages)
+
+    def test_reports_distinct_secret_kinds(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.make_repo(root)
+            token = "gh" + "p_" + ("a" * 36)
+            (root / "leak.py").write_text("-----BEGIN " + "RSA PRIVATE KEY-----\n" + token + "\n", encoding="utf-8")
+            messages = " ".join(item.message for item in audit(root))
+            self.assertIn("private-key", messages)
+            self.assertIn("github-token", messages)
+
+    def test_missing_reparse_attribute_does_not_crash(self) -> None:
+        original = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", None)
+        if original is not None:
+            delattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT")
+        try:
+            with tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                (root / "README.md").write_text("ok\n", encoding="utf-8")
+                self.assertEqual([path.name for path in iter_files(root)], ["README.md"])
+        finally:
+            if original is not None:
+                stat.FILE_ATTRIBUTE_REPARSE_POINT = original
+
+    def test_rejects_bad_size_limit(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.make_repo(root)
+            with self.assertRaises(ValueError):
+                audit(root, large_file_mb=float("nan"))
+            with self.assertRaises(ValueError):
+                audit(root, large_file_mb=-1)
+            with self.assertRaises(ValueError):
+                audit(root, large_file_mb=True)
 
 
 if __name__ == "__main__":

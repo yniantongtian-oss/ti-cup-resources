@@ -1,0 +1,47 @@
+[build-system]
+# setuptools 75+ starts rejecting the license table below, and current
+# setuptools releases no longer build on Python 3.8.
+requires = ["setuptools>=61,<75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ti-cup-resources"
+version = "0.2.0"
+description = "Utilities and templates for electronics-competition projects"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { file = "LICENSE" }
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.3.5,<8.4; python_version < '3.9'",
+  "pytest>=8.4,<9; python_version >= '3.9' and python_version < '3.10'",
+  "pytest>=9,<10; python_version >= '3.10'",
+  "ruff>=0.11,<1",
+]
+
+[project.scripts]
+ti-cup-audit = "tools.project_audit:main"
+ti-cup-modbus = "tools.modbus_rtu:main"
+ti-cup-bom = "tools.bom:main"
+ti-cup-prep = "tools.contest_prep:main"
+
+[tool.setuptools.packages.find]
+include = ["tools*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+target-version = "py38"
+line-length = 120
+src = ["tools", "tests", ".github/quality"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+"tools/bom.py" = ["E402"]
+"tools/contest_prep.py" = ["E402"]

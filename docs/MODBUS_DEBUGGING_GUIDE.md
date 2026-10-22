@@ -1,6 +1,8 @@
 # RS485 / Modbus RTU 联调指南
 
-适用场景：STM32F103C8T6 + MAX485 下位机，通过 USB 转 RS485 与电脑上位机通信。
+适用场景：MCU 加 RS-485 收发器，通过 USB 转 RS-485 与电脑上位机通信。下面的时序示例按 STM32F103C8T6 + MAX485 来写。MAX485 是 Analog Devices 的器件，不是 TI 的。
+
+新板如果改用 TI 收发器，THVD1450 是 3.3 V 到 5 V 的半双工 RS-485，带空闲总线失效保护，2026-10-22 产品页为 Active：<https://www.ti.com/product/THVD1450>。DE 和 `/RE` 的时序要求不变。
 
 ## 推荐起始配置
 
